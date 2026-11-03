@@ -1,0 +1,6 @@
+id=yijian_hide
+name=一键隐藏模块
+version=1.9
+versionCode=190
+author=酷安@KNJ蛙
+description=两阶段自动搭建 Root 隐藏环境：刷入时按教程顺序一次性装完全部模块（已装的按版本号决定是否覆盖升级），重启后自动写配置（Zygisk Next / HMA-OSS / PathMask / TEESimulator 包名全选），并对齐三项安全补丁日期。子模块已升级：HMA-OSS Zygisk 1eda3ef1、LSPosed 7939、SUSFS LKM v2.5.0-r18.8。PlayIntegrityFix 指纹与 DuckToolBox 密钥需联网获取，保留为手动步骤。免费发布，禁止倒卖。

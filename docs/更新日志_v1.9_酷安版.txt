@@ -1,0 +1,201 @@
+新手小白保姆级Root隐藏环境搭建完整实操教程（模块更新至 v1.9）
+
+一键隐藏模块 v1.9　作者 酷安@KNJ蛙
+
+刷入　重启　照清单点几下　完成
+
+这次更新
+
+三个子模块升到上游新版
+
+HMA UID Fake 换成 fgetpriority
+
+WebUI 里多了两个按钮：修复 key 状态、无效伪造信息
+
+修了两处显示问题：清单里 keybox 一直显示未完成、开机后偶发显示"部分项待重试"
+
+安装顺序、自动配置流程、手动清单都跟上一版一样
+
+　
+
+升级 HMA-OSS Zygisk 1eda3ef1
+
+升级 LSPosed v2.2.1 (7939)
+
+升级 SUSFS LKM v2.5.0-r18.8
+
+换用 fgetpriority v0.0.2（替换原来的 HMA UID Fake）
+
+NoMount 保持 v2.2.0 (605)
+
+Zygisk Next 保持 1.5.2 (869)
+
+PathMask 保持 2.8.3，八个内核分支齐全
+
+FuseHide 保持 v196
+
+Duck ToolBox 保持 0.2.1-Stable (137-canary)
+
+Play Integrity Fix 保持 v4.9-inject-s
+
+TEESimulator 保持 v4.0 (76-06f9f2e)
+
+ZN-Audit-Patch 保持 v1.2.0 (18-4d8d26d)
+
+Audit-Detect-Pass 保持 1.1
+
+HMA 预设配置保持 2026-10-25
+
+　
+
+WebUI 能干什么
+
+模块自带一个网页界面，在管理器里点本模块的「打开 WebUI」就进
+
+顶上显示模块版本和连通状态，下面每张卡片管一件事，点按钮会在页面下面的黑框里输出结果
+
+环境：看清 Root 管理器、TEESimulator、MT 管理器装没装
+
+Keybox 部署：打开 keybox 下载页、自动部署已下载的 keybox
+
+MT2 目录迁移：建新目录、把旧 mt2 里的东西合并搬过去、改写 mt2_path
+
+系统清理：清空 logd 尺寸属性、关闭 USB 调试
+
+电池：读健康度，一键全部不优化 / 全部优化，可设开机自动执行
+
+色彩饱和度：填 0.1 到 3.0 点应用立刻生效，可设开机自动下发
+
+屏幕亮度：查看当前亮度、查看硬件上限、解锁最大亮度、持续锁最亮或解除，可设开机自动开启
+
+隐藏设置：打开 GMS 里藏起来的设置入口
+
+扫盘检测：零宽字符探一下 Android/data、obb 能不能被绕过读
+
+输出：点过的命令和结果都记在页面下面的黑框里，报错也在那
+
+　
+
+这次新增的两个按钮（在 Keybox 部署卡片里）
+
+要先在上面把 keybox 部署好
+
+修复 key 状态（RKP default + widevine）：只走 RKP
+
+无效伪造信息（RKP 失败则回退传统模式）：先走 RKP，失败再走一次传统模式
+
+两个按钮都是你点了才执行，不会自己跑
+
+执行失败不影响已经部署好的 keybox，可以随时再点
+
+你机器的 ROM 没带 KmInstallKeybox 时，它会告诉你跳过，其它功能不受影响
+
+　
+
+修的两处显示问题
+
+人工清单里 keybox 那一行，以前不管你部署没部署都显示未完成，现在按实际情况显示
+
+开机早期目录还没就绪时，会把两项配置记成失败，模块描述就显示"部分项待重试"，
+其实配置是好的；现在这种情况不再误报
+
+　
+
+关于 fgetpriority（替换 HMA UID Fake）
+
+安装位置没变，还是排在 Audit-Detect-Pass 之后、FuseHide 之前
+
+校验方式也没变：按你的内核 KMI 挑对应的 ko，开机由它自己加载
+
+它做的是隐藏部分 syscall 结果，不需要额外配置
+
+⚠ 本模块不负责卸载被换掉的旧模块：刷完请在 KernelSU 管理器里把 hma-uidfake 手动删掉
+
+　
+
+自动刷入的顺序
+
+刷模块的时候不用你自己按顺序一个个点，模块会按下面这个顺序自动装完，中途不会重启
+
+Zygisk Next 到 PathMask 到 SUSFS LKM 到 LSPosed 到 HMA-OSS 到 ZN-Audit-Patch 到 Audit-Detect-Pass 到 fgetpriority 到 FuseHide 到 Duck ToolBox 到 PlayIntegrityFix 到 TEESimulator 到 NoMount
+
+装过的模块会看一下版本号，有新版本就覆盖升级，同版本才跳过
+
+不适配的项会自动跳过，原因写进清单
+
+　
+
+适配与要求
+
+Root 管理器 KernelSU 或 APatch，Magisk 部分功能受限
+
+架构 64 位设备
+
+内核 A12 到 A17 官方 KMI
+
+4.x 与 5.4 内核不适配的项会自动跳过，其余照常
+
+　
+
+需要你手动做的
+
+1　KernelSU 超级用户，给这三个应用 root 权限
+
+HMA-OSS
+
+FuseHide
+
+Shell
+
+2　KernelSU 设置，打开隐藏 SELinux 修改记录、默认卸载模块
+
+3　LSPosed 设置，打开禁用详细日志、输出日志到守护进程、状态通知
+
+　　Xposed API 调用保护保持关闭
+
+4　LSPosed 模块，找到 FuseHide，打开启用
+
+5　Duck ToolBox 密钥，打开 WebUI 拉取 keybox，需要能访问 GitHub
+
+6　Play Integrity Fix 指纹，触发 action 拉取，同样需要 GitHub
+
+　　机型要选 Pixel 6a 到 Pixel 10a 之间的，必须带 a 后缀
+
+　　比如 6a、7a、8a、9a、10a，不带 a 的都不行
+
+　　用这区间的机器拉指纹，Google 设备认证和 Play Integrity API Checker、Play Integrity Check 才能三绿
+
+　　然后打开 PIF 的 WebUI，把这四项都打开
+
+　　Spoof Build
+
+　　Spoof Props
+
+　　Spoof Build Play Store
+
+　　Spoof Sdk Play Store
+
+7　最后重启一次
+
+　
+
+免责声明
+
+本模块免费发布，禁止任何形式的倒卖、加价转售。
+
+如果你是从付费渠道得到的，说明你被二手贩子坑了，建议申请退款并举报。
+
+允许自由转载和二次分发，但必须保留作者署名，且不得用于任何收费场景
+（付费群、付费教程、捆绑加价、店铺代刷、以技术支持名义收费等）。
+
+本模块只是把别人开发的各个模块按正确顺序串起来自动配置，本体不包含任何破解或商业内容，
+各子模块的版权归各自作者所有。
+
+刷机有风险，请务必先备份数据。
+
+错误的模块组合、不匹配的内核都可能导致卡开机、数据丢失。模块已经做了适配判断，
+但这并不覆盖所有机型与 ROM。因使用本模块造成的任何损失，作者不承担任何责任。
+
+　
+
+作者 酷安@KNJ蛙　版本 1.9　免费分享，禁止倒卖

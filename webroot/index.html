@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>一键隐藏 · WebUI</title>
+<style>
+  :root{
+    --bg:#09090b; --panel:#18181b; --elevated:#27272a; --hover:#3f3f46;
+    --text:#f4f4f5; --sub:#a1a1aa; --muted:#71717a;
+    --line:#27272a; --accent:#3b82f6; --ok:#10b981;
+    --warn:#f59e0b; --err:#ef4444; --radius:14px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    background:radial-gradient(circle at 50% 0%,#1f1f2e 0%,var(--bg) 60%);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+    min-height:100vh;padding:18px 14px 32px;line-height:1.6;
+  }
+  .wrap{max-width:560px;margin:0 auto}
+  header{text-align:center;margin-bottom:22px}
+  header h1{font-size:1.35rem;font-weight:600;letter-spacing:.02em}
+  header .ver{font-size:.78rem;color:var(--muted);margin-top:4px}
+  .card{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);padding:16px;margin-bottom:14px;
+  }
+  .card h2{font-size:.95rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .row:last-child{margin-bottom:0}
+  .label{font-size:.85rem;color:var(--sub);flex:1}
+  .state{font-size:.78rem;padding:2px 9px;border-radius:20px;background:var(--elevated);color:var(--sub);white-space:nowrap}
+  .state.ok{background:rgba(16,185,129,.16);color:var(--ok)}
+  .state.warn{background:rgba(245,158,11,.16);color:var(--warn)}
+  .state.err{background:rgba(239,68,68,.16);color:var(--err)}
+  button{
+    background:var(--elevated);color:var(--text);border:none;
+    padding:11px 16px;border-radius:10px;font-size:.86rem;
+    font-family:inherit;cursor:pointer;transition:background .15s;
+    width:100%;text-align:center;
+  }
+  button:active{background:var(--hover)}
+  button.primary{background:var(--accent)}
+  button.primary:active{background:#2563eb}
+  button.danger{background:#7f1d1d}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .btn-grid{display:grid;gap:9px}
+  .hint{font-size:.75rem;color:var(--muted);margin-top:9px;line-height:1.5}
+  .term{
+    background:#000;border:1px solid var(--line);border-radius:10px;
+    padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:.74rem;line-height:1.65;max-height:260px;overflow-y:auto;
+    white-space:pre-wrap;word-break:break-all;color:#d4d4d8;
+  }
+  .term .ok{color:var(--ok)}
+  .term .err{color:var(--err)}
+  .term .warn{color:var(--warn)}
+  .term .info{color:var(--accent)}
+  .busy{position:relative}
+  .busy::after{
+    content:'';position:absolute;inset:0;border-radius:10px;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.07),transparent);
+    animation:sweep 1.1s infinite;
+  }
+  @keyframes sweep{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+  footer{text-align:center;font-size:.72rem;color:var(--muted);margin-top:20px;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>一键隐藏模块</h1>
+    <div class="ver">作者 酷安@KNJ蛙 · <span id="modVer">读取中…</span></div>
+  </header>
+
+  <div class="card">
+    <h2><span class="dot"></span>环境</h2>
+    <div class="row">
+      <span class="label">Root 管理器</span>
+      <span class="state" id="stRoot">检测中</span>
+    </div>
+    <div class="row">
+      <span class="label">TEESimulator</span>
+      <span class="state" id="stTeesim">检测中</span>
+    </div>
+    <div class="row">
+      <span class="label">MT 管理器</span>
+      <span class="state" id="stMt">检测中</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot"></span>Keybox 部署</h2>
+    <div class="row">
+      <span class="label">当前状态</span>
+      <span class="state" id="stKeybox">检测中</span>
+    </div>
+    <div class="btn-grid">
+      <button class="primary" id="btnOpenKeybox">打开 keybox 下载页</button>
+      <button id="btnDeployKeybox">检测并部署已下载的 keybox</button>
+      <button id="btnKbFix">修复 key 状态（RKP default + widevine）</button>
+      <button id="btnKbFixFallback">无效伪造信息（RKP 失败则回退传统模式）</button>
+    </div>
+    <div class="hint">
+      网页有人机验证，脚本下不到，需你在浏览器里手动下载。<br>
+      下载完成后不用改名，点上面的「检测并部署」，模块会自动找到、校验、备份旧文件并装好。<br>
+      下面两个按钮需要时手动点：都会把已部署的 keybox 写进 KeyMint / Keymaster，需要 root。
+      「修复 key 状态」只走 RKP；「无效伪造信息」先走 RKP、失败再回退传统模式。<br>
+      走的是原生命令：<b>LD_LIBRARY_PATH=/vendor/lib64/hw KmInstallKeybox keybox.xml &lt;设备号&gt; true rkp</b>。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot"></span>MT2 目录迁移</h2>
+    <div class="row">
+      <span class="label">当前 mt2_path</span>
+      <span class="state" id="stMt2">检测中</span>
+    </div>
+    <div class="btn-grid">
+      <button class="primary" id="btnMt2Migrate">建立新目录并改写 mt2_path</button>
+      <button id="btnMt2Open">查看目标路径</button>
+    </div>
+    <div class="hint">
+      顺序：先建 /sdcard/Download/MT管理器 → 合并搬走旧 MT2 目录里的文件 → 删空的旧目录 → 写入 mt2_path。<br>
+      改完请【强制停止 MT 管理器】再重开，否则 MT 会用旧值覆写回去。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot"></span>系统清理</h2>
+    <div class="btn-grid">
+      <button id="btnLogdClear">清空 logd 尺寸属性</button>
+      <button class="danger" id="btnUsbClear">关闭 USB 调试</button>
+    </div>
+    <div class="hint">
+      清空 logd：把 persist.logd.size 等四个属性置空，让日志缓冲区回到系统默认。<br>
+      关调试：关掉 adb_enabled / usb_debugging_enabled / wireless_adb_enabled，并清掉 persist.service.adb.* 等属性。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot"></span>电池</h2>
+    <div class="row">
+      <span class="label">健康度</span>
+      <span class="state" id="stBattery">检测中</span>
+    </div>
+    <div class="btn-grid">
+      <button id="btnBatteryLife">查询电池寿命</button>
+    </div>
+    <div class="hint">读出出厂设计容量、当前容量、循环次数、剩余百分比。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot"></span>电池优化策略</h2>
+    <div class="row">
+      <span class="label">当前策略</span>
+      <span class="state" id="stBattOpt">检测中</span>
+    </div>
+    <div class="btn-grid">
+      <button id="btnBattOff">全部不优化（全部加白名单）</button>
+      <button id="btnBattOn">全部优化（全部移出白名单）</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <span class="label">开机自动执行</span>
+      <select id="selBattAuto" style="background:var(--elevated);color:var(--text);border:none;padding:9px 10px;border-radius:9px;font-size:.82rem;font-family:inherit">
+        <option value="none">不自动执行</option>
+        <option value="off">开机自动 · 全部不优化</option>
+        <option value="on">开机自动 · 全部优化</option>
+      </select>
+    </div>
+    <div class="hint">
+      两个策略互斥，选一个。「全部不优化」会把全机所有包加入 deviceidle 白名单，
+      并对三方应用设 active + 放开后台限制；「全部优化」则全部移出。
+      操作前会自动快照白名单，可回滚。<br>
+      <b>影响范围较大（几百个包），执行需要几十秒。</b>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot"></span>色彩饱和度</h2>
+    <div class="row">
+      <span class="label">当前值</span>
+      <span class="state" id="stSaturation">检测中</span>
+    </div>
+    <div class="row">
+      <span class="label">设为</span>
+      <input id="inpSat" type="number" step="0.05" min="0.1" max="3.0" value="1.2"
+             style="width:92px;background:var(--elevated);color:var(--text);border:none;padding:9px 10px;border-radius:9px;font-size:.85rem;font-family:inherit;text-align:center">
+      <button id="btnSatApply" style="width:auto;flex:none;padding:9px 16px">应用</button>
+    </div>
+    <div class="row">
+      <span class="label">开机自动应用</span>
+      <input id="inpSatAuto" type="number" step="0.05" min="0.1" max="3.0" placeholder="留空=关闭"
+             style="width:92px;background:var(--elevated);color:var(--text);border:none;padding:9px 10px;border-radius:9px;font-size:.85rem;font-family:inherit;text-align:center">
+      <button id="btnSatAuto" style="width:auto;flex:none;padding:9px 16px">保存</button>
+    </div>
+    <div class="hint">
+      1.0 = 系统默认，0.1 ~ 3.0 可调。0.5 偏灰，1.5 鲜艳，2.0 很艳。<br>
+      <b>即时生效</b>，调完马上就能看到颜色变化，不用重启。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot"></span>隐藏设置</h2>
+    <div class="btn-grid">
+      <button id="btnGoogleSettings">打开隐藏 Google 设置</button>
+    </div>
+    <div class="hint">GMS 内置但桌面没暴露的设置入口（GoogleSettingsIALink）。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot"></span>屏幕亮度</h2>
+    <div class="row">
+      <span class="label">当前亮度</span>
+      <span class="state" id="stBlCur">检测中</span>
+    </div>
+    <div class="row">
+      <span class="label">硬件上限</span>
+      <span class="state" id="stBlMax">检测中</span>
+    </div>
+    <div class="btn-grid">
+      <button id="btnBlCur">查看当前亮度</button>
+      <button id="btnBlMax">查看支持的最大亮度</button>
+      <button id="btnBlUnlock">解锁最大亮度</button>
+    </div>
+    <div class="hint">
+      解锁时<b>自动读取 max_brightness 后写入</b>，不同机型上限不同——
+      有的 16383，有的 2047，写死数字会超限被拒，所以这里自动取值。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot"></span>持续解锁最大亮度</h2>
+    <div class="row">
+      <span class="label">当前状态</span>
+      <span class="state" id="stBlLock">检测中</span>
+    </div>
+    <div class="btn-grid">
+      <button id="btnBlLockOn">开启持续解锁</button>
+      <button class="danger" id="btnBlLockOff">解除持续解锁</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <span class="label">开机自动开启</span>
+      <select id="selBlAuto" style="background:var(--elevated);color:var(--text);border:none;padding:9px 10px;border-radius:9px;font-size:.82rem;font-family:inherit">
+        <option value="none">不自动</option>
+        <option value="on">开机自动开启</option>
+      </select>
+    </div>
+    <div class="hint">
+      开启后每秒把亮度锁在上限，同时关闭自动亮度，防止被系统改回去。<br>
+      <b>解除</b>会停掉后台进程，并把亮度降到 40%（不会停在刺眼的满亮度）。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot"></span>扫盘检测</h2>
+    <div class="row">
+      <span class="label">上次结果</span>
+      <span class="state" id="stScan">未检测</span>
+    </div>
+    <div class="btn-grid">
+      <button id="btnScan">扫盘漏洞检测</button>
+    </div>
+    <div class="hint">
+      用零宽字符（U+200D）探测 /sdcard/Android/data 与 obb 是否可绕过访问限制。<br>
+      能读到内容 = 系统有漏洞；读不到 = 安全。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot"></span>输出</h2>
+    <div class="term" id="output">> 就绪
+</div>
+  </div>
+
+  <footer>
+    免费发布 · 禁止倒卖<br>
+    酷安@KNJ蛙
+  </footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var out = document.getElementById('output');
+  var busy = false;
+
+  function log(text, cls){
+    var line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = text;
+    out.appendChild(line);
+    out.scrollTop = out.scrollHeight;
+  }
+
+  function clear(){
+    out.innerHTML = '';
+  }
+
+  // ========== KernelSU / Magisk WebUI 桥接 ==========
+  //
+  // ★ 关键（1.9 修的真 bug，真机实测）★
+  //   KernelSU WebUI 的 ksu.exec 第三个参数是**字符串**（回调函数名），
+  //   不是 JS 函数对象。签名是：
+  //       ksu.exec(cmd, optsJsonString, callbackNameString)
+  //   它会在 JS 全局里按这个名字去找函数来调用。
+  //
+  //   之前写成 ksu.exec(cmd, '{}', function(...){...}) —— 传的是函数对象，
+  //   系统把它转成字符串后根本找不到对应全局函数，回调永不触发，
+  //   页面就永远停在「检测中」。
+  //
+  //   正确做法（照 Zygisk Next 的实现，已在同机型验证）：
+  //     1. 生成唯一回调名
+  //     2. window[回调名] = (errno, stdout, stderr) => {...}
+  //     3. ksu.exec(cmd, JSON.stringify(opts), 回调名)
+  //     4. 回调里用完 delete window[回调名]
+  //
+  // 参考：/data/adb/modules/zygisksu/webroot/assets/index-*.js
+  //    const n = wM("exec");
+  //    window[n] = (l,a,s) => { o({errno:l,stdout:a,stderr:s}), i(n) };
+  //    ksu.exec(e, JSON.stringify(t), n)
+  var cbSeq = 0;
+  var bridgeWarned = false;
+
+  function nextCbName(){
+    cbSeq += 1;
+    // 带时间戳+序号，避免同名覆盖
+    return '__yj_cb_' + Date.now().toString(36) + '_' + cbSeq;
+  }
+
+  function bridgeKind(){
+    if (typeof ksu === 'undefined' || !ksu) return 'none';
+    if (typeof ksu.exec === 'function') return 'ksu';
+    if (typeof ksu.execCommand === 'function') return 'ksu-execCommand';
+    return 'none';
+  }
+
+  function exec(cmd, cb){
+    var kind = bridgeKind();
+    var done = false;
+    var timer = null;
+    var cbName = null;
+
+    function finish(errno, stdout, stderr){
+      if (done) return;
+      done = true;
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (cbName) { try { delete window[cbName]; } catch (e) {} }
+      cb(errno, stdout || '', stderr || '');
+    }
+
+    // 20 秒兜底：桥接异常时给明确结果，绝不干等
+    timer = setTimeout(function(){
+      finish(-2, '', '执行超时（桥接未回调）');
+    }, 20000);
+
+    if (kind === 'ksu'){
+      try {
+        cbName = nextCbName();
+        // 先挂全局回调，再调用
+        window[cbName] = function(errno, stdout, stderr){
+          finish(errno, stdout, stderr);
+        };
+        ksu.exec(cmd, JSON.stringify({}), cbName);
+        return;
+      } catch (e) {
+        finish(-3, '', '桥接调用失败: ' + (e && e.message ? e.message : e));
+        return;
+      }
+    }
+
+    if (kind === 'ksu-execCommand'){
+      try {
+        var p = ksu.execCommand(cmd);
+        if (p && typeof p.then === 'function'){
+          p.then(function(r){
+            if (typeof r === 'string') finish(0, r, '');
+            else if (r && typeof r === 'object') finish(r.errno || 0, r.stdout, r.stderr);
+            else finish(0, '', '');
+          }).catch(function(e){
+            finish(-3, '', '执行失败: ' + (e && e.message ? e.message : e));
+          });
+          return;
+        }
+      } catch (e3) {
+        finish(-3, '', 'execCommand 调用失败');
+        return;
+      }
+    }
+
+    // 没有桥接：明确提示，绝不假装成功
+    if (!bridgeWarned){
+      bridgeWarned = true;
+      log('[提示] 未检测到 WebUI 桥接（共检测到 ' + (typeof ksu) + '），请在 KernelSU / Magisk 管理器内打开本页面', 'warn');
+    }
+    finish(-1, '', '未检测到 WebUI 桥接');
+  }
+
+  function run(label, cmd, done){
+    if (busy) { log('[忙] 请等当前任务结束', 'warn'); return; }
+    busy = true;
+    setBtns(true);
+    log('', '');
+    log('> ' + label, 'info');
+    exec(cmd, function(errno, stdout, stderr){
+      var text = (stdout || '').replace(/\\r/g, '');
+      if (text){
+        text.split('\n').forEach(function(l){
+          if (l.trim() === '') return;
+          var cls = '';
+          if (l.indexOf('✓') >= 0) cls = 'ok';
+          else if (l.indexOf('✗') >= 0) cls = 'err';
+          else if (l.indexOf('⚠') >= 0) cls = 'warn';
+          log(l, cls);
+        });
+      }
+      if (stderr && stderr.trim()){
+        log(stderr.replace(/\\r/g, ''), 'err');
+      }
+      if (errno !== 0 && errno !== undefined && errno !== null){
+        log('[退出码 ' + errno + ']', 'warn');
+      }
+      busy = false;
+      setBtns(false);
+      if (done) done(errno, stdout, stderr);
+      refresh();
+    });
+  }
+
+  var btns = [];
+  function setBtns(disabled){
+    if (btns.length === 0){
+      btns = [
+        document.getElementById('btnOpenKeybox'),
+        document.getElementById('btnDeployKeybox'),
+        document.getElementById('btnMt2Migrate'),
+        document.getElementById('btnMt2Open'),
+        document.getElementById('btnLogdClear'),
+        document.getElementById('btnUsbClear'),
+        // 1.9 新增
+        document.getElementById('btnBatteryLife'),
+        document.getElementById('btnBattOff'),
+        document.getElementById('btnBattOn'),
+        document.getElementById('btnSatApply'),
+        document.getElementById('btnSatAuto'),
+        document.getElementById('btnGoogleSettings'),
+        document.getElementById('btnScan'),
+        // 1.9 亮度
+        document.getElementById('btnBlCur'),
+        document.getElementById('btnBlMax'),
+        document.getElementById('btnBlUnlock'),
+        document.getElementById('btnBlLockOn'),
+        document.getElementById('btnBlLockOff')
+      ];
+    }
+    btns.forEach(function(b){
+      if (!b) return;
+      b.disabled = disabled;
+      if (disabled) b.classList.add('busy');
+      else b.classList.remove('busy');
+    });
+    var sel = document.getElementById('selBattAuto');
+    if (sel) sel.disabled = disabled;
+    var sel2 = document.getElementById('selBlAuto');
+    if (sel2) sel2.disabled = disabled;
+  }
+
+  // ---------- 状态刷新 ----------
+  // 改成调模块自带的 webui_status.sh，页面不再拼长命令。
+  // 初版在页面上拼 `VAR= . "lib/common.sh"` —— `.` 是内建命令，
+  // 前缀赋值对它不生效，会直接报错，导致状态永远出不来。
+  function setState(id, text, cls){
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'state' + (cls ? ' ' + cls : '');
+  }
+
+  function markAllBusy(){
+    setState('stRoot', '检测中', '');
+    setState('stTeesim', '检测中', '');
+    setState('stMt', '检测中', '');
+    setState('stKeybox', '检测中', '');
+    setState('stMt2', '检测中', '');
+  }
+
+  function refresh(){
+    var MODDIR = '/data/adb/modules/yijian_hide';
+    var cmd = 'sh "' + MODDIR + '/webui_status.sh" 2>&1';
+
+    exec(cmd, function(errno, stdout, stderr){
+      // 先把内容解析出来（即使退出码非 0，只要有 KEY=VALUE 就先显示）
+      var map = {};
+      if (stdout){
+        stdout.split('\n').forEach(function(l){
+          var i = l.indexOf('=');
+          if (i > 0) map[l.slice(0, i).trim()] = l.slice(i + 1).trim();
+        });
+      }
+
+      var hasAny = false;
+      for (var k in map){ hasAny = true; break; }
+
+      if (!hasAny){
+        // 完全没内容：明确报错，而不是继续显示"检测中"
+        var msg = stderr && stderr.trim() ? stderr.trim() : '无输出';
+        if (msg.indexOf('桥接') >= 0 || errno === -1 || errno === -2 || errno === -3){
+          markAllBusy();
+          setState('stRoot', '桥接不可用', 'err');
+          setState('stTeesim', '桥接不可用', 'err');
+          setState('stMt', '桥接不可用', 'err');
+          setState('stKeybox', '桥接不可用', 'err');
+          setState('stMt2', '桥接不可用', 'err');
+          document.getElementById('modVer').textContent = '未连接';
+        } else {
+          setState('stRoot', '脚本未就绪', 'err');
+          setState('stTeesim', '脚本未就绪', 'err');
+          setState('stMt', '脚本未就绪', 'err');
+          setState('stKeybox', '脚本未就绪', 'err');
+          setState('stMt2', '脚本未就绪', 'err');
+          document.getElementById('modVer').textContent = '读取失败';
+        }
+        if (msg) log('[状态] ' + msg, 'err');
+        return;
+      }
+
+      document.getElementById('modVer').textContent =
+        map['VER'] && map['VER'] !== '?' ? 'v' + map['VER'] : '未就绪';
+
+      setState('stRoot', map['ROOT'] || '未知',
+        map['ROOT'] && map['ROOT'] !== '未知' ? 'ok' : 'warn');
+
+      setState('stTeesim', map['TEESIM'] === '1' ? '已安装' : '未安装',
+        map['TEESIM'] === '1' ? 'ok' : 'warn');
+
+      setState('stMt', map['MT'] === '1' ? '已安装' : '未安装',
+        map['MT'] === '1' ? 'ok' : 'warn');
+
+      var kb = map['KEYBOX'] || 'none';
+      if (kb.indexOf('installed:') === 0){
+        setState('stKeybox', '已部署 ' + kb.split(':')[1] + 'B', 'ok');
+      } else if (kb.indexOf('installed-invalid:') === 0){
+        setState('stKeybox', '文件无效', 'err');
+      } else if (kb.indexOf('pending:') === 0){
+        setState('stKeybox', '待部署', 'warn');
+      } else {
+        setState('stKeybox', '未部署', 'warn');
+      }
+
+      var mt2 = map['MT2'] || 'none';
+      if (mt2.indexOf('path:') === 0){
+        var p = mt2.substring(5);
+        setState('stMt2', p, p.indexOf('MT管理器') >= 0 ? 'ok' : 'warn');
+      } else if (mt2.indexOf('dir-only:') === 0){
+        setState('stMt2', '目录已建，配置未写', 'warn');
+      } else {
+        setState('stMt2', '未设置', 'warn');
+      }
+
+      // ---- 1.9 新增字段 ----
+      var bat = map['BATTERY'] || 'unavailable';
+      if (bat === 'unavailable'){
+        setState('stBattery', '不可读', 'warn');
+      } else {
+        var pct = parseInt(bat, 10);
+        setState('stBattery', bat.replace(/'/g, ' '),
+          pct >= 90 ? 'ok' : (pct >= 80 ? 'warn' : 'err'));
+      }
+
+      var opt = map['BATT_AUTO'] || 'none';
+      var curMode = '';   // 从 MT2 之后没有当前策略字段，用 auto 展示
+      var optLabel = {'none':'手动','off':'开机自动·不优化','on':'开机自动·优化'}[opt] || opt;
+      setState('stBattOpt', optLabel, opt === 'none' ? 'warn' : 'ok');
+      var sel = document.getElementById('selBattAuto');
+      if (sel && !busy && document.activeElement !== sel){
+        sel.value = opt;
+        sel.dataset.last = opt;
+      }
+
+      var sat = map['SATURATION'] || '1.0';
+      var satNum = parseFloat(sat);
+      setState('stSaturation', sat + (Math.abs(satNum - 1.0) < 0.001 ? '（默认）' : ''),
+        Math.abs(satNum - 1.0) < 0.001 ? 'ok' : 'warn');
+
+      var sata = map['SAT_AUTO'] || 'none';
+      var inpAuto = document.getElementById('inpSatAuto');
+      if (inpAuto && !busy && document.activeElement !== inpAuto){
+        inpAuto.value = (sata === 'none') ? '' : sata;
+      }
+
+      var scan = map['SCAN'] || 'none';
+      if (scan === 'safe') setState('stScan', '安全', 'ok');
+      else if (scan === 'vulnerable') setState('stScan', '有漏洞', 'err');
+      else setState('stScan', '未检测', 'warn');
+
+      // ---- 1.9 亮度字段 ----
+      var blCur = map['BL_CUR'] || 'unavailable';
+      var blMax = map['BL_MAX'] || 'unavailable';
+      if (blCur === 'unavailable' || blMax === 'unavailable'){
+        setState('stBlCur', '不可读', 'warn');
+        setState('stBlMax', '不可读', 'warn');
+      } else {
+        var curN = parseInt(blCur, 10), maxN = parseInt(blMax, 10);
+        var pct = (maxN > 0) ? Math.round(curN * 100 / maxN) : 0;
+        setState('stBlCur', blCur + ' / ' + blMax + '（' + pct + '%）',
+          pct >= 95 ? 'warn' : 'ok');
+        setState('stBlMax', blMax, 'ok');
+      }
+
+      var blLock = map['BL_LOCK'] || 'off';
+      if (blLock.indexOf('on:') === 0){
+        setState('stBlLock', '运行中 (pid ' + blLock.substring(3) + ')', 'ok');
+      } else {
+        setState('stBlLock', '未开启', 'warn');
+      }
+
+      var blAuto = map['BL_AUTO'] || 'none';
+      var selBl = document.getElementById('selBlAuto');
+      if (selBl && !busy && document.activeElement !== selBl){
+        selBl.value = (blAuto === 'on') ? 'on' : 'none';
+        selBl.dataset.last = selBl.value;
+      }
+    });
+  }
+
+  // ---------- 按钮 ----------
+  var MODDIR = '/data/adb/modules/yijian_hide';
+
+  function bind(id, label, subcmd, confirmMsg){
+    var b = document.getElementById(id);
+    if (!b) return;
+    b.addEventListener('click', function(){
+      if (confirmMsg && !confirm(confirmMsg)) return;
+      var cmd = 'sh "' + MODDIR + '/action.sh" ' + subcmd + ' 2>&1';
+      run(label, cmd);
+    });
+  }
+
+  bind('btnOpenKeybox', '打开 keybox 下载页', 'keybox-open');
+  bind('btnKbFix', '修复 key 状态（仅 RKP）', 'keybox-fix strict');
+  bind('btnKbFixFallback', '无效伪造信息（RKP 失败回退传统模式）', 'keybox-fix loose');
+  bind('btnDeployKeybox', '检测并部署 keybox', 'keybox-deploy');
+  bind('btnMt2Migrate', '迁移 MT2 目录', 'mt2-migrate',
+       '会把旧 MT2 目录里的文件合并到新目录，然后删除空的旧目录，并改写 mt2_path。继续？');
+  bind('btnMt2Open', '查看目标路径', 'mt2-open');
+  bind('btnLogdClear', '清空 logd 尺寸', 'logd-clear');
+  bind('btnUsbClear', '关闭 USB 调试', 'usb-clear',
+       '会关闭 adb 与无线调试。确认后你将无法再用电脑 adb 连接本机，只能靠手机端操作。继续？');
+
+  // ============ 1.9 新增：系统设置与检测 ============
+  function runCmd(label, subcmd, confirmMsg, cb){
+    if (busy) { log('[忙] 请等当前任务结束', 'warn'); return; }
+    if (confirmMsg && !confirm(confirmMsg)) return;
+    var cmd = 'sh "' + MODDIR + '/action.sh" ' + subcmd + ' 2>&1';
+    run(label, cmd, cb);
+  }
+
+  bind('btnBatteryLife', '查询电池寿命', 'battery-life');
+  bind('btnGoogleSettings', '打开隐藏 Google 设置', 'google-settings');
+  bind('btnScan', '扫盘漏洞检测', 'scan-storage');
+
+  bind('btnBattOff', '电池：全部不优化', 'battery-opt off',
+       '会把全机所有应用加入电池优化白名单，并对三方应用放开后台限制。\n影响几百个包，耗时几十秒。继续？');
+  bind('btnBattOn', '电池：全部优化', 'battery-opt on',
+       '会把全机所有应用移出电池优化白名单。\n影响几百个包，耗时几十秒。继续？');
+
+  // 饱和度：应用
+  document.getElementById('btnSatApply').addEventListener('click', function(){
+    var v = document.getElementById('inpSat').value.trim();
+    if (!v) { log('请先填数值', 'warn'); return; }
+    runCmd('设置饱和度 ' + v, 'saturation ' + v,
+      null);
+  });
+
+  // 饱和度：开机自动
+  document.getElementById('btnSatAuto').addEventListener('click', function(){
+    var v = document.getElementById('inpSatAuto').value.trim();
+    var arg = v ? v : 'none';
+    runCmd('开机自动饱和度 = ' + arg, 'saturation-auto ' + arg, null);
+  });
+
+  // 电池开机自动策略（下拉框变更即保存）
+  document.getElementById('selBattAuto').addEventListener('change', function(e){
+    if (busy) {
+      log('[忙] 请稍候再改', 'warn');
+      e.target.value = e.target.dataset.last || 'none';
+      return;
+    }
+    var v = e.target.value;
+    e.target.dataset.last = v;
+    runCmd('开机自动电池策略 = ' + v, 'battery-auto ' + v, null);
+  });
+
+  // ============ 1.9 新增：亮度控制 ============
+  bind('btnBlCur', '查看当前亮度', 'brightness');
+  bind('btnBlMax', '查看支持的最大亮度', 'brightness-max');
+  bind('btnBlUnlock', '解锁最大亮度', 'brightness-unlock',
+       '会把亮度写到硬件上限（自动读取，不用填数字）。屏幕会变成最亮。继续？');
+
+  bind('btnBlLockOn', '开启持续解锁', 'brightness-lock-on',
+       '会关闭自动亮度，并每秒把亮度锁在上限。会明显更耗电，屏幕也会一直最亮。继续？');
+  bind('btnBlLockOff', '解除持续解锁', 'brightness-lock-off', null);
+
+  // 亮度开机自动（下拉框）
+  document.getElementById('selBlAuto').addEventListener('change', function(e){
+    if (busy) {
+      log('[忙] 请稍候再改', 'warn');
+      e.target.value = e.target.dataset.last || 'none';
+      return;
+    }
+    var v = e.target.value;
+    e.target.dataset.last = v;
+    runCmd('开机自动持续解锁 = ' + v, 'brightness-auto ' + v, null);
+  });
+
+  // 启动
+  refresh();
+  setTimeout(refresh, 1200);
+})();
+</script>
+</body>
+</html>

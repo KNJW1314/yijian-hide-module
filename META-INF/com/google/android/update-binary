@@ -1,0 +1,33 @@
+#!/sbin/sh
+umask 022
+
+OUTFD="${2:-${1:-}}"
+ZIPFILE="${3:-${ZIPFILE:-}}"
+[ -n "$ZIPFILE" ] || { echo "! 参数错误：没有拿到模块 zip 路径" >&2; exit 1; }
+[ -f "$ZIPFILE" ] || { echo "! 找不到模块 zip：$ZIPFILE" >&2; exit 1; }
+
+DEST="${MODPATH:-$TMPDIR}"
+[ -n "$DEST" ] || { echo "! 无解压目标目录" >&2; exit 1; }
+mkdir -p "$DEST" 2>/dev/null || { echo "! 无法创建 $DEST" >&2; exit 1; }
+
+unzip -o "$ZIPFILE" -d "$DEST" >/dev/null 2>&1 || { echo "! 解压失败" >&2; exit 1; }
+
+if command -v set_perm >/dev/null 2>&1; then
+  for _f in customize.sh service.sh post-fs-data.sh action.sh uninstall.sh; do
+    [ -f "$DEST/$_f" ] && set_perm "$DEST/$_f" 0 0 0755 2>/dev/null
+  done
+fi
+for _f in customize.sh service.sh post-fs-data.sh action.sh uninstall.sh; do
+  [ -f "$DEST/$_f" ] && chmod 0755 "$DEST/$_f" 2>/dev/null
+done
+chmod 0644 "$DEST"/lib/*.sh "$DEST/module.prop" "$DEST/util_functions.sh" 2>/dev/null
+
+[ -f "$DEST/customize.sh" ] || { echo "! 缺少 customize.sh" >&2; exit 1; }
+
+MODDIR="$DEST"
+MODPATH="$DEST"
+export MODDIR MODPATH
+
+. "$DEST/customize.sh"
+
+exit 0
